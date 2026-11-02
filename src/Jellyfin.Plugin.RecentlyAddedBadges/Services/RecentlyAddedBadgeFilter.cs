@@ -189,7 +189,7 @@ public sealed class RecentlyAddedBadgeFilter : IAsyncActionFilter
             var source = await ReadImageAsync(executed.Result).ConfigureAwait(false);
             if (source == null) return;
 
-            using var bitmap = SKBitmap.Decode(source);
+            using var bitmap = SKBitmap.Decode(source.Value.Bytes);
             if (bitmap == null || bitmap.Width < 32 || bitmap.Height < 32 || bitmap.Width > 4096 || bitmap.Height > 4096)
                 return;
 
