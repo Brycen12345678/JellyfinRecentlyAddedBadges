@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Jellyfin Recently Added Badges</title>
+</head>
+<body>
+    <div id="configPage" data-role="page" class="page type-interior pluginConfigurationPage configPage">
+        <div data-role="content">
+            <div class="content-primary">
+                <h1>Jellyfin Recently Added Badges</h1>
+                <p>Show a New badge on recently added movies and TV shows.</p>
+
+                <form class="configForm">
+                    <fieldset>
+                        <legend>Enabled libraries</legend>
+                        <p>Select the libraries where the New badge should appear.</p>
+                        <div id="libraryList">
+                            <p>Loading libraries…</p>
+                        </div>
+                    </fieldset>
+
+                    <fieldset>
+                        <legend>Badge appearance</legend>
+                        <div class="inputContainer">
+                            <label for="badgeBackgroundColor">Badge background colour</label>
+                            <input id="badgeBackgroundColor" type="color" value="#E53935" />
+                        </div>
+                        <div class="selectContainer">
+                            <label for="badgePosition">Badge position</label>
+                            <select is="emby-select" id="badgePosition" class="emby-select">
+                                <option value="top-left">Top left</option>
+                                <option value="top-right">Top right</option>
+                                <option value="bottom-left">Bottom left</option>
+                                <option value="bottom-right">Bottom right</option>
+                            </select>
+                        </div>
+                        <div class="inputContainer">
+                            <label for="badgeDurationDays">Show badge for (days)</label>
+                            <input is="emby-input" id="badgeDurationDays" type="number" min="1" max="365" step="1" />
+                            <div class="fieldDescription">The badge is shown while an item's Date Added is within this many days.</div>
+                        </div>
+                    </fieldset>
+
+                    <div>
+                        <button is="emby-button" type="submit" class="raised button-submit block">
+                            <span>Save</span>
+                        </button>
+                    </div>
+                </form>
+                <div id="statusMessage" role="status" aria-live="polite"></div>
+            </div>
+        </div>
+
+        <script>
+            var PluginConfig = {
+                pluginId: "a9b5c3e1-7d42-4f86-9a31-6c2e8b7d4f10"
+            };
+
+            var currentConfig = null;
+
+            function loadLibraryOptions(config) {
+                var container = document.querySelector('#libraryList');
+                container.innerHTML = '';
+
+                return ApiClient.getVirtualFolders().then(function (libraries) {
+                    if (!libraries || !libraries.length) {
+                        container.textContent = 'No libraries were returned by Jellyfin.';
+                        return;
+                    }
+
+                    libraries.forEach(function (library) {
+                        if (!library.ItemId) {
+                            return;
+                        }
+
+                        var id = String(library.ItemId);
+                        var row = document.createElement('label');
+                        row.className = 'checkboxContainer';
+                        row.style.display = 'block';
+
+                        var checkbox = document.createElement('input');
+                        checkbox.type = 'checkbox';
+                        checkbox.className = 'libraryCheckbox';
+                        checkbox.value = id;
+                        checkbox.checked = (config.EnabledLibraryIds || []).indexOf(id) !== -1;
+
+                        var text = document.createElement('span');
+                        text.textContent = library.Name || 'Unnamed library';
+
+                        row.appendChild(checkbox);
+                        row.appendChild(text);
+                        container.appendChild(row);
+                    });
+
+                    if (!container.querySelector('.libraryCheckbox')) {
+                        container.textContent = 'No usable libraries were found.';
+                    }
+                });
+            }
+
+            document.querySelector('.configPage').addEventListener('pageshow', function () {
+                Dashboard.showLoadingMsg();
+
+                ApiClient.getPluginConfiguration(PluginConfig.pluginId)
+                    .then(function (config) {
+                        currentConfig = config;
+                        document.querySelector('#badgeBackgroundColor').value = config.BadgeBackgroundColor || '#E53935';
+                        document.querySelector('#badgePosition').value = config.BadgePosition || 'top-left';
+                        document.querySelector('#badgeDurationDays').value = config.BadgeDurationDays || 7;
+                        return loadLibraryOptions(config);
+                    })
+                    .catch(function (error) {
+                        console.error('Recently Added Badges: failed to load configuration', error);
+                        document.querySelector('#statusMessage').textContent = 'Could not load plugin settings. Check the server log.';
+                    })
+                    .finally(function () {
+                        Dashboard.hideLoadingMsg();
+                    });
+            });
+
+            document.querySelector('.configForm').addEventListener('submit', function (event) {
+                event.preventDefault();
+                if (!currentConfig) {
+                    return false;
+                }
+
+                Dashboard.showLoadingMsg();
+
+                currentConfig.EnabledLibraryIds = Array.from(document.querySelectorAll('.libraryCheckbox:checked'))
+                    .map(function (checkbox) { return checkbox.value; });
+                currentConfig.BadgeBackgroundColor = document.querySelector('#badgeBackgroundColor').value;
+                currentConfig.BadgePosition = document.querySelector('#badgePosition').value;
+                currentConfig.BadgeDurationDays = Math.max(1, Math.min(365, parseInt(document.querySelector('#badgeDurationDays').value, 10) || 7));
+
+                ApiClient.updatePluginConfiguration(PluginConfig.pluginId, currentConfig)
+                    .then(Dashboard.processPluginConfigurationUpdateResult)
+                    .catch(function (error) {
+                        console.error('Recently Added Badges: failed to save configuration', error);
+                        document.querySelector('#statusMessage').textContent = 'Could not save settings. Check the server log.';
+                        Dashboard.hideLoadingMsg();
+                    });
+
+                return false;
+            });
+        </script>
+    </div>
+</body>
+</html>
