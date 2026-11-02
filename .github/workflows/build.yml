@@ -1,14 +1,15 @@
-name: Build plugin
+name: Build and release plugin
 
 on:
   push:
     branches: [ main ]
-    paths:
-      - "src/**"
-      - ".github/workflows/build.yml"
+    tags: [ "v*" ]
   pull_request:
     branches: [ main ]
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -29,12 +30,92 @@ jobs:
         run: dotnet build src/Jellyfin.Plugin.RecentlyAddedBadges/Jellyfin.Plugin.RecentlyAddedBadges.csproj --configuration Release --no-restore
 
       - name: Publish plugin assembly
-        run: dotnet publish src/Jellyfin.Plugin.RecentlyAddedBadges/Jellyfin.Plugin.RecentlyAddedBadges.csproj --configuration Release --no-build --output ./publish
+        run: dotnet publish src/Jellyfin.Plugin.RecentlyAddedBadges/Jellyfin.Plugin.RecentlyAddedBadges.csproj --configuration Release --no-build --no-self-contained --output ./publish
 
-      - name: Upload build artifact
+      - name: Package plugin
+        id: package
+        shell: bash
+        run: |
+          set -euo pipefail
+          PROJECT="src/Jellyfin.Plugin.RecentlyAddedBadges/Jellyfin.Plugin.RecentlyAddedBadges.csproj"
+          VERSION="$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' "$PROJECT" | head -n 1)"
+          if [[ -z "$VERSION" ]]; then
+            echo "Could not read plugin version from project file."
+            exit 1
+          fi
+
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            TAG_VERSION="${GITHUB_REF_NAME#v}"
+            if [[ "$TAG_VERSION" != "$VERSION" ]]; then
+              echo "Git tag v$TAG_VERSION does not match project version $VERSION."
+              exit 1
+            fi
+          fi
+
+          mkdir -p package
+          cp publish/Jellyfin.Plugin.RecentlyAddedBadges.dll package/
+          cat > package/meta.json <<EOF
+          {
+            "guid": "a9b5c3e1-7d42-4f86-9a31-6c2e8b7d4f10",
+            "name": "Jellyfin Recently Added Badges",
+            "description": "Displays a New badge on recently added movies and TV series in Jellyfin.",
+            "overview": "Adds configurable New badges to recently added movies and TV shows, including native-client poster images.",
+            "owner": "Brycen12345678",
+            "category": "General",
+            "version": "$VERSION",
+            "targetAbi": "12.0.0.0",
+            "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "status": "Active",
+            "autoUpdate": true,
+            "imagePath": "",
+            "assemblies": ["Jellyfin.Plugin.RecentlyAddedBadges.dll"]
+          }
+          EOF
+
+          ZIP="JellyfinRecentlyAddedBadges_${VERSION}.zip"
+          (cd package && zip -q "../$ZIP" Jellyfin.Plugin.RecentlyAddedBadges.dll meta.json)
+          CHECKSUM="$(md5sum "$ZIP" | awk '{print $1}')"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "zip=$ZIP" >> "$GITHUB_OUTPUT"
+          echo "checksum=$CHECKSUM" >> "$GITHUB_OUTPUT"
+          echo "timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+
+      - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: JellyfinRecentlyAddedBadges
+          name: JellyfinRecentlyAddedBadges-${{ steps.package.outputs.version }}
           path: |
-            ./publish/Jellyfin.Plugin.RecentlyAddedBadges.dll
+            JellyfinRecentlyAddedBadges_${{ steps.package.outputs.version }}.zip
+            package/meta.json
+            publish/Jellyfin.Plugin.RecentlyAddedBadges.dll
           if-no-files-found: error
+
+      - name: Publish GitHub release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Jellyfin Recently Added Badges ${{ steps.package.outputs.version }}
+          generate_release_notes: true
+          files: JellyfinRecentlyAddedBadges_${{ steps.package.outputs.version }}.zip
+
+      - name: Update Jellyfin plugin manifest
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          VERSION: ${{ steps.package.outputs.version }}
+          CHECKSUM: ${{ steps.package.outputs.checksum }}
+          TIMESTAMP: ${{ steps.package.outputs.timestamp }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          git checkout -B main origin/main
+          python3 scripts/update_manifest.py --version "$VERSION" --checksum "$CHECKSUM" --timestamp "$TIMESTAMP"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add manifest.json
+          if git diff --cached --quiet; then
+            echo "Manifest already contains this version."
+          else
+            git commit -m "Update plugin manifest for v$VERSION"
+            git push origin main
+          fi
