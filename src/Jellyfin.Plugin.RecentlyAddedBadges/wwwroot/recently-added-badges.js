@@ -71,8 +71,14 @@
         badge.textContent = 'New';
         badge.style.background = config.BadgeBackgroundColor || '#E53935';
         badge.style.color = '#fff';
-        badge.style.borderRadius = '4px';
+        badge.style.borderRadius = '0';
         badge.style.fontWeight = '700';
+        badge.style.display = 'inline-flex';
+        badge.style.alignItems = 'center';
+        badge.style.justifyContent = 'center';
+        badge.style.padding = '5px 13px';
+        badge.style.lineHeight = '1.1';
+        badge.style.clipPath = 'polygon(50% 0%, 58% 9%, 69% 2%, 75% 13%, 88% 10%, 90% 23%, 100% 32%, 93% 43%, 100% 55%, 91% 64%, 89% 78%, 76% 80%, 70% 94%, 59% 90%, 50% 100%, 41% 90%, 30% 94%, 24% 80%, 11% 78%, 9% 64%, 0% 55%, 7% 43%, 0% 32%, 10% 23%, 12% 10%, 25% 13%, 31% 2%, 42% 9%)';
         badge.style.order = '-1';
         qualityContainer.prepend(badge);
     }
@@ -109,11 +115,15 @@
         Object.assign(badge.style, {
             background: config.BadgeBackgroundColor || '#E53935',
             color: '#fff',
-            borderRadius: '4px',
+            borderRadius: '0',
             fontWeight: '700',
             fontSize: '12px',
-            lineHeight: '1.25',
-            padding: '3px 8px',
+            lineHeight: '1.1',
+            padding: '5px 13px',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            clipPath: 'polygon(50% 0%, 58% 9%, 69% 2%, 75% 13%, 88% 10%, 90% 23%, 100% 32%, 93% 43%, 100% 55%, 91% 64%, 89% 78%, 76% 80%, 70% 94%, 59% 90%, 50% 100%, 41% 90%, 30% 94%, 24% 80%, 11% 78%, 9% 64%, 0% 55%, 7% 43%, 0% 32%, 10% 23%, 12% 10%, 25% 13%, 31% 2%, 42% 9%)',
             boxSizing: 'border-box'
         });
         container.appendChild(badge);
