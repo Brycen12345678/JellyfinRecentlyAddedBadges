@@ -4,7 +4,7 @@
     const pluginId = 'a9b5c3e1-7d42-4f86-9a31-6c2e8b7d4f10';
     const cache = new Map();
     let config = null;
-    let libraryIds = new Set();
+    let libraryPaths = [];
     let observer = null;
     let scanQueued = false;
 
@@ -19,7 +19,7 @@
             cache.set(key, api.ajax({
                 type: 'GET',
                 url: api.getUrl('/Items/' + encodeURIComponent(id), {
-                    Fields: 'DateCreated,ParentId,Type'
+                    Fields: 'DateCreated,Path,Type'
                 }),
                 dataType: 'json'
             }).catch(() => null));
@@ -28,17 +28,16 @@
         return cache.get(key);
     }
 
-    async function findLibrary(item, userId) {
-        let current = item;
-        const visited = new Set();
-        for (let depth = 0; depth < 12 && current?.ParentId; depth++) {
-            const parentId = String(current.ParentId).replace(/-/g, '').toLowerCase();
-            if (libraryIds.has(parentId)) return true;
-            if (visited.has(parentId)) break;
-            visited.add(parentId);
-            current = await getItem(userId, current.ParentId);
-        }
-        return false;
+    function normalizePath(path) {
+        return String(path || '').replace(/\\/g, '/').replace(/\/{2,}/g, '/').replace(/\/$/, '');
+    }
+
+    function isInEnabledLibrary(item) {
+        const itemPath = normalizePath(item?.Path);
+        if (!itemPath) return false;
+        return libraryPaths.some(root =>
+            itemPath === root || itemPath.startsWith(root + '/')
+        );
     }
 
     function removeBadge(card) {
@@ -151,7 +150,7 @@
             return;
         }
 
-        const parentLibraryEnabled = await findLibrary(item, userId);
+        const parentLibraryEnabled = isInEnabledLibrary(item);
         if (!card.isConnected) return;
         if (!parentLibraryEnabled) {
             removeBadge(card);
@@ -181,7 +180,13 @@
         try {
             config = await api.getPluginConfiguration(pluginId);
             const libraries = await api.getVirtualFolders();
-            libraryIds = new Set((libraries || []).map(folder => String(folder.ItemId || '').replace(/-/g, '').toLowerCase()).filter(Boolean));
+            const enabledIds = new Set((config.EnabledLibraryIds || [])
+                .map(id => String(id).replace(/-/g, '').toLowerCase()));
+            libraryPaths = (libraries || [])
+                .filter(folder => enabledIds.has(String(folder.ItemId || '').replace(/-/g, '').toLowerCase()))
+                .flatMap(folder => folder.Locations || folder.LibraryOptions?.PathInfos?.map(info => info.Path) || [])
+                .map(normalizePath)
+                .filter(Boolean);
         } catch (error) {
             console.warn('[Recently Added Badges] Could not load plugin configuration or libraries.', error);
             return false;
