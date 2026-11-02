@@ -1,1 +1,20 @@
-[]
+[
+  {
+    "guid": "a9b5c3e1-7d42-4f86-9a31-6c2e8b7d4f10",
+    "name": "Jellyfin Recently Added Badges",
+    "description": "Displays a New badge on recently added movies and TV series in Jellyfin.",
+    "overview": "Adds configurable New badges to recently added movies and TV shows, including native-client poster images.",
+    "owner": "Brycen12345678",
+    "category": "General",
+    "versions": [
+      {
+        "version": "0.1.0.0",
+        "changelog": "Initial public release of Jellyfin Recently Added Badges.",
+        "targetAbi": "12.0.0.0",
+        "sourceUrl": "https://github.com/Brycen12345678/JellyfinRecentlyAddedBadges/releases/download/v0.1.0.0/JellyfinRecentlyAddedBadges_0.1.0.0.zip",
+        "checksum": "3b04e2462c9852a5259f9f0703af3e88",
+        "timestamp": "2026-11-02T05:20:38Z"
+      }
+    ]
+  }
+]
