@@ -27,3 +27,14 @@ jobs:
 
       - name: Build
         run: dotnet build src/Jellyfin.Plugin.RecentlyAddedBadges/Jellyfin.Plugin.RecentlyAddedBadges.csproj --configuration Release --no-restore
+
+      - name: Publish plugin assembly
+        run: dotnet publish src/Jellyfin.Plugin.RecentlyAddedBadges/Jellyfin.Plugin.RecentlyAddedBadges.csproj --configuration Release --no-build --output ./publish
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: JellyfinRecentlyAddedBadges
+          path: |
+            ./publish/Jellyfin.Plugin.RecentlyAddedBadges.dll
+          if-no-files-found: error
