@@ -111,7 +111,7 @@ public sealed class RecentlyAddedBadgeFilter : IAsyncActionFilter
         if (dto.ImageTags == null || !dto.ImageTags.TryGetValue(ImageType.Primary, out var tag) || string.IsNullOrWhiteSpace(tag))
             return;
 
-        var token = CreateItemToken(dto.Id, added, revision);
+        var token = CreateItemToken(dto.Id, added, revision, tag);
         var decorated = StripMarker(tag) + Marker + token;
         if (string.Equals(tag, decorated, StringComparison.Ordinal)) return;
 
@@ -145,8 +145,17 @@ public sealed class RecentlyAddedBadgeFilter : IAsyncActionFilter
         }
 
         var config = Plugin.Instance?.Configuration;
-        var item = _libraryManager.GetItemById<BaseItem>(itemId, http.User.FindFirst("Jellyfin-UserId")?.Value is { } userText && Guid.TryParse(userText, out var userId) ? userId : Guid.Empty);
+        var item = _libraryManager.GetItemById<BaseItem>(itemId);
         if (config == null || item == null || !IsEligible(item, config))
+        {
+            await OriginalNoStoreAsync(http, next).ConfigureAwait(false);
+            return;
+        }
+
+        var suppliedTag = context.ActionArguments.TryGetValue("tag", out var imageTag) ? imageTag as string : null;
+        var currentRevision = GetRevision(config);
+        var expectedToken = CreateItemToken(item.Id, item.DateCreated, currentRevision, StripMarker(suppliedTag ?? string.Empty));
+        if (!string.Equals(GetMarkerToken(suppliedTag), expectedToken, StringComparison.Ordinal))
         {
             await OriginalNoStoreAsync(http, next).ConfigureAwait(false);
             return;
@@ -271,9 +280,9 @@ public sealed class RecentlyAddedBadgeFilter : IAsyncActionFilter
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(raw))).ToLowerInvariant()[..16];
     }
 
-    private static string CreateItemToken(Guid id, DateTime added, string revision)
+    private static string CreateItemToken(Guid id, DateTime added, string revision, string baseTag)
     {
-        var raw = id.ToString("N") + "|" + added.Ticks.ToString(CultureInfo.InvariantCulture) + "|" + revision;
+        var raw = id.ToString("N") + "|" + added.Ticks.ToString(CultureInfo.InvariantCulture) + "|" + revision + "|" + baseTag;
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(raw))).ToLowerInvariant()[..16];
     }
 
@@ -283,6 +292,12 @@ public sealed class RecentlyAddedBadgeFilter : IAsyncActionFilter
         var index = tag.LastIndexOf(Marker, StringComparison.Ordinal);
         return index >= 0 && tag.Length - index == Marker.Length + 16
             && tag.AsSpan(index + Marker.Length).ToString().All(Uri.IsHexDigit);
+    }
+
+    private static string? GetMarkerToken(string? tag)
+    {
+        if (!HasMarker(tag)) return null;
+        return tag![(tag.LastIndexOf(Marker, StringComparison.Ordinal) + Marker.Length)..];
     }
 
     private static string StripMarker(string tag)
