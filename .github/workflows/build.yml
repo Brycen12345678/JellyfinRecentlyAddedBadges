@@ -23,6 +23,12 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
+      - name: Validate web script syntax
+        run: node --check src/Jellyfin.Plugin.RecentlyAddedBadges/wwwroot/recently-added-badges.js
+
+      - name: Validate manifest updater syntax
+        run: python3 -m py_compile scripts/update_manifest.py
+
       - name: Restore
         run: dotnet restore src/Jellyfin.Plugin.RecentlyAddedBadges/Jellyfin.Plugin.RecentlyAddedBadges.csproj
 
