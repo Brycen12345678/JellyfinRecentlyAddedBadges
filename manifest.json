@@ -12,8 +12,8 @@
         "changelog": "Initial public release of Jellyfin Recently Added Badges.",
         "targetAbi": "12.0.0.0",
         "sourceUrl": "https://github.com/Brycen12345678/JellyfinRecentlyAddedBadges/releases/download/v0.1.1.0/JellyfinRecentlyAddedBadges_0.1.1.0.zip",
-        "checksum": "42661daad5a41254f79d820b2712ac31",
-        "timestamp": "2026-11-02T05:47:53Z"
+        "checksum": "5c6f5567b3e2f2240f348b11f3079d62",
+        "timestamp": "2026-11-02T06:01:01Z"
       },
       {
         "version": "0.1.0.0",
