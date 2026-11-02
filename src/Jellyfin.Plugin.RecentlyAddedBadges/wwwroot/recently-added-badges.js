@@ -45,6 +45,12 @@
     }
 
     function positionMatches(element, position) {
+        // Jellyfin Enhanced exposes the intended corner explicitly. Computed
+        // styles may report both opposing inset values, so do not use them
+        // to determine the corner when this attribute is available.
+        const corner = element.getAttribute('data-je-corner');
+        if (corner) return corner === position;
+
         const style = window.getComputedStyle(element);
         const top = style.top !== 'auto';
         const bottom = style.bottom !== 'auto';
