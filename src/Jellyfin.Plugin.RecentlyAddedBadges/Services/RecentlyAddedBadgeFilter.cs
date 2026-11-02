@@ -195,10 +195,16 @@ public sealed class RecentlyAddedBadgeFilter : IAsyncActionFilter
 
             DrawBadge(bitmap, config);
             using var image = SKImage.FromBitmap(bitmap);
-            using var encoded = image.Encode(SKEncodedImageFormat.Png, 100);
+            var (encodedFormat, contentType) = source.Value.ContentType.ToLowerInvariant() switch
+            {
+                "image/jpeg" or "image/jpg" => (SKEncodedImageFormat.Jpeg, "image/jpeg"),
+                "image/webp" => (SKEncodedImageFormat.Webp, "image/webp"),
+                _ => (SKEncodedImageFormat.Png, "image/png")
+            };
+            using var encoded = image.Encode(encodedFormat, 95);
             if (encoded == null) return;
 
-            executed.Result = new FileContentResult(encoded.ToArray(), "image/png");
+            executed.Result = new FileContentResult(encoded.ToArray(), contentType);
             http.Response.Headers[HeaderNames.CacheControl] = NoStore;
             http.Response.Headers.Remove(HeaderNames.ETag);
             http.Response.Headers.Remove(HeaderNames.LastModified);
@@ -220,21 +226,23 @@ public sealed class RecentlyAddedBadgeFilter : IAsyncActionFilter
         return IsInEnabledLibrary(item.ParentId, ParseLibraryIds(config.EnabledLibraryIds));
     }
 
-    private static async Task<byte[]?> ReadImageAsync(IActionResult? result)
+    private readonly record struct SourceImage(byte[] Bytes, string ContentType);
+
+    private static async Task<SourceImage?> ReadImageAsync(IActionResult? result)
     {
         switch (result)
         {
             case FileContentResult content:
-                return content.FileContents;
+                return new SourceImage(content.FileContents, content.ContentType);
             case FileStreamResult streamResult:
             {
                 await using var input = streamResult.FileStream;
                 await using var output = new MemoryStream();
                 await input.CopyToAsync(output).ConfigureAwait(false);
-                return output.ToArray();
+                return new SourceImage(output.ToArray(), streamResult.ContentType);
             }
             case PhysicalFileResult physical:
-                return await File.ReadAllBytesAsync(physical.FileName).ConfigureAwait(false);
+                return new SourceImage(await File.ReadAllBytesAsync(physical.FileName).ConfigureAwait(false), physical.ContentType);
             default:
                 return null;
         }
