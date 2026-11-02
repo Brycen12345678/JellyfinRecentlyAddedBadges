@@ -101,17 +101,21 @@ public sealed class RecentlyAddedBadgeFilter : IAsyncActionFilter
 
     private void Stamp(BaseItemDto dto, HashSet<Guid> enabled, PluginConfiguration config, string revision)
     {
-        if (dto.Type is not (BaseItemKind.Movie or BaseItemKind.Series)
-            || dto.Id == Guid.Empty
-            || dto.DateCreated is not { } added
-            || !IsRecent(added, config.BadgeDurationDays)
-            || !IsInEnabledLibrary(dto.ParentId, enabled))
+        if (dto.Type is not (BaseItemKind.Movie or BaseItemKind.Series) || dto.Id == Guid.Empty)
+            return;
+
+        var libraryItem = _libraryManager.GetItemById<BaseItem>(dto.Id);
+        var added = dto.DateCreated ?? libraryItem?.DateCreated;
+        var parentId = dto.ParentId ?? (libraryItem == null ? null : libraryItem.ParentId);
+        if (added is not { } dateAdded
+            || !IsRecent(dateAdded, config.BadgeDurationDays)
+            || !IsInEnabledLibrary(parentId, enabled))
             return;
 
         if (dto.ImageTags == null || !dto.ImageTags.TryGetValue(ImageType.Primary, out var tag) || string.IsNullOrWhiteSpace(tag))
             return;
 
-        var token = CreateItemToken(dto.Id, added, revision, tag);
+        var token = CreateItemToken(dto.Id, dateAdded, revision, tag);
         var decorated = StripMarker(tag) + Marker + token;
         if (string.Equals(tag, decorated, StringComparison.Ordinal)) return;
 
