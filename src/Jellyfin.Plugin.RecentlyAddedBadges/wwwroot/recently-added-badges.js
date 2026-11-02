@@ -16,7 +16,13 @@
         const key = String(id).replace(/-/g, '').toLowerCase();
         if (!cache.has(key)) {
             const api = currentApi();
-            cache.set(key, api.getItem(userId, id).catch(() => null));
+            cache.set(key, api.ajax({
+                type: 'GET',
+                url: api.getUrl('/Items/' + encodeURIComponent(id), {
+                    Fields: 'DateCreated,ParentId,Type'
+                }),
+                dataType: 'json'
+            }).catch(() => null));
             if (cache.size > 2500) cache.clear();
         }
         return cache.get(key);
