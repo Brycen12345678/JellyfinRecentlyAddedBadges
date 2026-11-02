@@ -78,7 +78,7 @@ public sealed class RecentlyAddedBadgeFilter : IAsyncActionFilter
             return;
 
         var config = Plugin.Instance?.Configuration;
-        if (config == null || config.EnabledLibraryIds.Count == 0) return;
+        if (config == null || config.EnabledLibraryIds == null || config.EnabledLibraryIds.Count == 0) return;
 
         var enabled = ParseLibraryIds(config.EnabledLibraryIds);
         if (enabled.Count == 0) return;
@@ -163,6 +163,11 @@ public sealed class RecentlyAddedBadgeFilter : IAsyncActionFilter
 
         var executed = await next().ConfigureAwait(false);
         if (executed.Exception != null || executed.Canceled || http.Response.HasStarted) return;
+        http.Response.Headers[HeaderNames.CacheControl] = NoStore;
+        http.Response.Headers.Remove(HeaderNames.ETag);
+        http.Response.Headers.Remove(HeaderNames.LastModified);
+
+        if (http.Response.StatusCode == StatusCodes.Status304NotModified) return;
 
         try
         {
@@ -194,7 +199,7 @@ public sealed class RecentlyAddedBadgeFilter : IAsyncActionFilter
 
     private bool IsEligible(BaseItem item, PluginConfiguration config)
     {
-        if (item.GetBaseItemKind() is not (BaseItemKind.Movie or BaseItemKind.Series)
+        if (config.EnabledLibraryIds == null || item.GetBaseItemKind() is not (BaseItemKind.Movie or BaseItemKind.Series)
             || !IsRecent(item.DateCreated, config.BadgeDurationDays))
             return false;
         return IsInEnabledLibrary(item.ParentId, ParseLibraryIds(config.EnabledLibraryIds));
@@ -238,13 +243,14 @@ public sealed class RecentlyAddedBadgeFilter : IAsyncActionFilter
         var textWidth = textPaint.MeasureText("New");
         var badgeWidth = textWidth + horizontalPadding * 2;
         var badgeHeight = textSize + verticalPadding * 2;
-        var x = config.BadgePosition.EndsWith("right", StringComparison.OrdinalIgnoreCase)
+        var position = string.IsNullOrWhiteSpace(config.BadgePosition) ? "top-left" : config.BadgePosition;
+        var x = position.EndsWith("right", StringComparison.OrdinalIgnoreCase)
             ? width - margin - badgeWidth : margin;
-        var y = config.BadgePosition.StartsWith("bottom", StringComparison.OrdinalIgnoreCase)
+        var y = position.StartsWith("bottom", StringComparison.OrdinalIgnoreCase)
             ? height - margin - badgeHeight : margin;
 
         SKColor background;
-        try { background = SKColor.Parse(config.BadgeBackgroundColor); }
+        try { background = SKColor.Parse(string.IsNullOrWhiteSpace(config.BadgeBackgroundColor) ? "#E53935" : config.BadgeBackgroundColor); }
         catch { background = new SKColor(229, 57, 53); }
 
         using var canvas = new SKCanvas(bitmap);
@@ -275,7 +281,7 @@ public sealed class RecentlyAddedBadgeFilter : IAsyncActionFilter
     {
         var raw = string.Join("|", config.BadgeBackgroundColor, config.BadgePosition,
             config.BadgeDurationDays.ToString(CultureInfo.InvariantCulture),
-            string.Join(",", config.EnabledLibraryIds.OrderBy(x => x, StringComparer.Ordinal)),
+            string.Join(",", (config.EnabledLibraryIds ?? []).OrderBy(x => x, StringComparer.Ordinal)),
             DateTime.UtcNow.ToString("yyyyMMdd", CultureInfo.InvariantCulture));
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(raw))).ToLowerInvariant()[..16];
     }
