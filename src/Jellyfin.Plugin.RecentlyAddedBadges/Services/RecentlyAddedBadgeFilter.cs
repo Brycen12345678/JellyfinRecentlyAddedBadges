@@ -74,7 +74,9 @@ public sealed class RecentlyAddedBadgeFilter : IAsyncActionFilter
     private async Task StampDtoResponseAsync(ActionExecutingContext context, ActionExecutionDelegate next)
     {
         var executed = await next().ConfigureAwait(false);
-        if (executed.Exception != null || executed.Canceled || executed.Result is not ObjectResult { Value: not null } result)
+        if (executed.Exception != null || executed.Canceled)
+            return;
+        if (executed.Result is not ObjectResult result || result.Value == null)
             return;
 
         var config = Plugin.Instance?.Configuration;
@@ -106,7 +108,9 @@ public sealed class RecentlyAddedBadgeFilter : IAsyncActionFilter
 
         var libraryItem = _libraryManager.GetItemById<BaseItem>(dto.Id);
         var added = dto.DateCreated ?? libraryItem?.DateCreated;
-        var parentId = dto.ParentId ?? (libraryItem == null ? null : libraryItem.ParentId);
+        Guid? parentId = dto.ParentId;
+        if (parentId == null && libraryItem != null)
+            parentId = libraryItem.ParentId;
         if (added is not { } dateAdded
             || !IsRecent(dateAdded, config.BadgeDurationDays)
             || !IsInEnabledLibrary(parentId, enabled))
@@ -217,8 +221,9 @@ public sealed class RecentlyAddedBadgeFilter : IAsyncActionFilter
                 return content.FileContents;
             case FileStreamResult streamResult:
             {
+                await using var input = streamResult.FileStream;
                 await using var output = new MemoryStream();
-                await streamResult.FileStream.CopyToAsync(output).ConfigureAwait(false);
+                await input.CopyToAsync(output).ConfigureAwait(false);
                 return output.ToArray();
             }
             case PhysicalFileResult physical:
