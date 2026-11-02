@@ -107,11 +107,16 @@ public sealed class RecentlyAddedBadgeFilter : IAsyncActionFilter
         if (dto.Type is not (BaseItemKind.Movie or BaseItemKind.Series) || dto.Id == Guid.Empty)
             return;
 
-        var libraryItem = _libraryManager.GetItemById<BaseItem>(dto.Id);
-        var added = dto.DateCreated ?? libraryItem?.DateCreated;
+        BaseItem? libraryItem = null;
+        var added = dto.DateCreated;
         Guid? parentId = dto.ParentId;
-        if (parentId == null && libraryItem != null)
-            parentId = libraryItem.ParentId;
+        if (added == null || parentId == null)
+        {
+            libraryItem = _libraryManager.GetItemById<BaseItem>(dto.Id);
+            added ??= libraryItem?.DateCreated;
+            if (parentId == null && libraryItem != null)
+                parentId = libraryItem.ParentId;
+        }
         if (added is not { } dateAdded
             || !IsRecent(dateAdded, config.BadgeDurationDays)
             || !IsInEnabledLibrary(parentId, enabled))
@@ -120,8 +125,9 @@ public sealed class RecentlyAddedBadgeFilter : IAsyncActionFilter
         if (dto.ImageTags == null || !dto.ImageTags.TryGetValue(ImageType.Primary, out var tag) || string.IsNullOrWhiteSpace(tag))
             return;
 
-        var token = CreateItemToken(dto.Id, dateAdded, revision, tag);
-        var decorated = StripMarker(tag) + Marker + token;
+        var baseTag = StripMarker(tag);
+        var token = CreateItemToken(dto.Id, dateAdded, revision, baseTag);
+        var decorated = baseTag + Marker + token;
         if (string.Equals(tag, decorated, StringComparison.Ordinal)) return;
 
         dto.ImageTags[ImageType.Primary] = decorated;
@@ -312,8 +318,8 @@ public sealed class RecentlyAddedBadgeFilter : IAsyncActionFilter
 
     private static string? GetMarkerToken(string? tag)
     {
-        if (!HasMarker(tag)) return null;
-        return tag![(tag.LastIndexOf(Marker, StringComparison.Ordinal) + Marker.Length)..];
+        if (tag is null || !HasMarker(tag)) return null;
+        return tag[(tag.LastIndexOf(Marker, StringComparison.Ordinal) + Marker.Length)..];
     }
 
     private static string StripMarker(string tag)
