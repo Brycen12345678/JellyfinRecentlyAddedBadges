@@ -6,6 +6,7 @@ using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
+using Jellyfin.Data.Enums;
 using Jellyfin.Plugin.RecentlyAddedBadges.Configuration;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Library;
