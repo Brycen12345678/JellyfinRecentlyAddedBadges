@@ -32,6 +32,6 @@ After the first GitHub release has been published:
 
 ## Development
 
-The GitHub Actions workflow validates the web script and manifest updater, restores, builds, packages, and uploads an artifact on pushes and pull requests. To publish a release, create a Git tag matching the project version (currently `v0.1.0.0`). The tag-triggered workflow creates the GitHub release and updates `manifest.json` with the release ZIP and its MD5 checksum.
+The GitHub Actions workflow validates the web script and manifest updater, restores, builds, packages, and uploads an artifact on pushes and pull requests. Releases are published from a branch named `release/<version>` (for example, `release/v0.1.0.0`). The workflow creates the matching Git tag and GitHub release, then updates `manifest.json` with the release ZIP and its MD5 checksum.
 
 The plugin is still early-stage. Native rendering has passed compilation and packaging, but should be tested against the actual Jellyfin clients in use before treating every client as verified.
