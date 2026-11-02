@@ -49,28 +49,31 @@
             && (position.endsWith('left') ? left && !right : right && !left);
     }
 
-    function createBadge(card) {
-        const scalable = card.querySelector('.cardScalable') || card;
-        const host = scalable.querySelector('.je-tag-host') || scalable;
-        const position = config.BadgePosition || 'top-left';
-        let container = Array.from(host.querySelectorAll('.quality-overlay-container'))
-            .find(element => positionMatches(element, position));
+    function addBadgeToQualityContainer(card, qualityContainer) {
+        const existing = card.querySelector('.rab-badge');
+        if (existing && existing.parentElement === qualityContainer) return;
+        if (existing) existing.remove();
+        card.querySelectorAll('.rab-overlay-container').forEach(node => node.remove());
 
-        if (container) {
-            // The quality container is a flex column. Prepending the New badge
-            // makes it the first chip and naturally pushes quality chips down.
-            const badge = document.createElement('div');
-            badge.className = 'quality-overlay-label rab-badge';
-            badge.textContent = 'New';
-            badge.style.background = config.BadgeBackgroundColor || '#E53935';
-            badge.style.color = '#fff';
-            badge.style.borderRadius = '4px';
-            badge.style.fontWeight = '700';
-            badge.style.order = '-1';
-            container.prepend(badge);
-            return;
+        const badge = document.createElement('div');
+        badge.className = 'quality-overlay-label rab-badge';
+        badge.textContent = 'New';
+        badge.style.background = config.BadgeBackgroundColor || '#E53935';
+        badge.style.color = '#fff';
+        badge.style.borderRadius = '4px';
+        badge.style.fontWeight = '700';
+        badge.style.order = '-1';
+        qualityContainer.prepend(badge);
+    }
+
+    function addStandaloneBadge(card, host) {
+        let container = card.querySelector('.rab-overlay-container');
+        if (container && container.parentElement !== host) {
+            host.appendChild(container);
         }
+        if (container) return;
 
+        const position = config.BadgePosition || 'top-left';
         container = document.createElement('div');
         container.className = 'rab-overlay-container';
         Object.assign(container.style, {
@@ -106,6 +109,22 @@
         host.appendChild(container);
     }
 
+    function placeBadge(card) {
+        const scalable = card.querySelector('.cardScalable') || card;
+        const host = scalable.querySelector('.je-tag-host') || scalable;
+        const position = config.BadgePosition || 'top-left';
+        const qualityContainer = Array.from(host.querySelectorAll('.quality-overlay-container'))
+            .find(element => positionMatches(element, position));
+
+        if (qualityContainer) {
+            addBadgeToQualityContainer(card, qualityContainer);
+        } else {
+            const existing = card.querySelector('.rab-badge');
+            if (existing) existing.remove();
+            addStandaloneBadge(card, host);
+        }
+    }
+
     async function updateCard(card, userId) {
         if (!card.isConnected || !config) return;
         const id = card.getAttribute('data-id');
@@ -133,9 +152,7 @@
             return;
         }
 
-        // Avoid duplicates when the observer sees the card's own badge insertion.
-        if (card.querySelector('.rab-badge')) return;
-        createBadge(card);
+        placeBadge(card);
     }
 
     function queueScan() {
@@ -147,11 +164,7 @@
             const userId = api?.getCurrentUserId?.();
             if (!userId || !config) return;
             document.querySelectorAll('.card[data-id]').forEach(card => {
-                if (card.dataset.rabProcessed === 'true') return;
-                card.dataset.rabProcessed = 'true';
-                updateCard(card, userId).catch(() => {
-                    card.dataset.rabProcessed = 'false';
-                });
+                updateCard(card, userId).catch(() => {});
             });
         });
     }
@@ -179,9 +192,11 @@
     function start() {
         let attempts = 0;
         const tryStart = () => {
-            if (initialize()) return;
-            attempts++;
-            if (attempts < 30) setTimeout(tryStart, 1000);
+            initialize().then(ok => {
+                if (ok) return;
+                attempts++;
+                if (attempts < 30) setTimeout(tryStart, 1000);
+            });
         };
         tryStart();
     }
