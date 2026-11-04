@@ -61,13 +61,35 @@
         card.querySelectorAll('.rab-overlay-container').forEach(node => node.remove());
 
         const badge = document.createElement('div');
-        badge.className = 'quality-overlay-label rab-badge';
+        badge.className = 'rab-badge';
         badge.textContent = 'New';
-        badge.style.background = config.BadgeBackgroundColor || '#E53935';
-        badge.style.color = '#fff';
-        badge.style.borderRadius = '4px';
-        badge.style.fontWeight = '700';
-        badge.style.order = '-1';
+        Object.assign(badge.style, {
+            background: config.BadgeBackgroundColor || '#E53935',
+            color: '#fff',
+            borderRadius: '4px',
+            fontWeight: '700',
+            fontSize: '12px',
+            lineHeight: '1.25',
+            padding: '3px 8px',
+            boxSizing: 'border-box',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            clipPath: 'none',
+            mask: 'none',
+            boxShadow: 'none',
+            border: '0',
+            transform: 'none',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            clipPath: 'none',
+            mask: 'none',
+            boxShadow: 'none',
+            border: '0',
+            transform: 'none',
+            order: '-1'
+        });
         qualityContainer.prepend(badge);
     }
 
@@ -98,7 +120,7 @@
         });
 
         const badge = document.createElement('div');
-        badge.className = 'quality-overlay-label rab-badge';
+        badge.className = 'rab-badge';
         badge.textContent = 'New';
         Object.assign(badge.style, {
             background: config.BadgeBackgroundColor || '#E53935',
